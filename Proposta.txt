@@ -1,0 +1,6 @@
+Proposta do projeto final:
+Seria criar um sistema inteligente que controlasse aparelhos de refrigeração de ambiente, como ventiladores, ar condicionado, etc. 
+
+Atualmente no mini-projeto eu consigo ter dois modos de controle: um por temperatura( uma temperatura fixa atualmente), e outro por timer(que também é fixo). Além disso atualmente controlo somente um LED. Posso alternar entre os modos usando um push button ou via bluetooth utilizando um smartphone. 
+
+Para o projeto final: Eu usaria um ventilador de verdade, e além disso os parâmetros de cada modo seriam variáveis, ou seja, a temperatura e o tempo do timer são ajustáveis, pelo smartphone e por um teclado no circuito. Para isso eu teria que ter alguma forma de feedback no circuito, que teria que ser um display. 
