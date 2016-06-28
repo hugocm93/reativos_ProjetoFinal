@@ -3,27 +3,29 @@
 #define N_ROWS 4
 #define N_COLUMNS 3
 #define DEBOUNCE 20
+#define TEMP_BUTTON '*'
+#define TIME_BUTTON '#'
 
 #define SENSOR A1
 #define RELAY A2
 
-#define TEMP_BUTTON '*'
-#define TIME_BUTTON '#'
-
 /*Primeiro: intervalo em milisegundos entre as checagens de temperatura.
   Segundo: segundos do timer. Terceiro: Temperatura limiar.*/
-#define INTERVAL 3000
-#define TIMEOUT  10000
-#define THRESHOLD 25
+#define INTERVAL 10000
+#define TIMEOUT  60000
+#define THRESHOLD 28
 
 enum Mode {
   Idle,
   Temperature,
   Timer,
-  Setup
+  Setup,
+  On
 };
 
 LiquidCrystal lcd(13, 12, 11, 10, 9, 8);
+
+String lcdText[2] = {{""}, {""}};
 
 unsigned long interval = INTERVAL, timeout = TIMEOUT, threshold = THRESHOLD;
 
@@ -70,6 +72,8 @@ void clearAllStates();
 
 void set(Mode mode);
 
+int printInLcd(String message, int line);
+
 void setup() {
   Serial.begin(9600);
   lcd.begin(16, 2);
@@ -96,41 +100,46 @@ void loop() {
     oldSensorValue = analogRead(SENSOR);
     lastUpdateTime = millis();
   }
-
+  
   receiveData();
-
-  delay(10);
 
   /*Tratamento e comportamento de cada modo*/
   switch (option) {
     case Temperature:
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Temperature ");
-      lcd.setCursor(0, 1);
-      lcd.print(tempInCelsius(oldSensorValue));
-      lcd.print(" C");
+//      lcd.clear();
+//      lcd.setCursor(0, 0);
+//      lcd.print("Temperature ");
+//      lcd.setCursor(0, 1);
+//      lcd.print(tempInCelsius(oldSensorValue));
+//      lcd.print(" C");
+
+      printInLcd("Temperature ", 0);
+      printInLcd(String(tempInCelsius(oldSensorValue)) + " C", 1);
 
       Serial.print("Temperature ");
-      Serial.print(tempInCelsius(oldSensorValue));
-      Serial.print(" C");
-      Serial.println();
+      Serial.println(String(tempInCelsius(oldSensorValue)) + " C");
 
       /*Verifica se a temperatura limiar foi atingida e faz a ação em caso afirmativo*/
       if (tempInCelsius(oldSensorValue) > (float)threshold) {
         digitalWrite(RELAY, HIGH);
       }
       else {
+        if(digitalRead(RELAY)){
+          break;
+        }
         digitalWrite(RELAY, LOW);
       }
       break;
 
     case Timer:
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Timer ");
-      lcd.setCursor(0, 1);
-      lcd.print(millis() - timerStamp);
+//      lcd.clear();
+//      lcd.setCursor(0, 0);
+//      lcd.print("Timer ");
+//      lcd.setCursor(0, 1);
+//      lcd.print(millis() - timerStamp);
+
+      printInLcd("Timer ",0);
+      printInLcd(String((millis() - timerStamp)/1000) + " s", 1);
 
       Serial.print("Timer ");
       Serial.println(millis() - timerStamp);
@@ -145,10 +154,18 @@ void loop() {
       }
       break;
 
-    default:
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("Idle");
+    case On:
+        digitalWrite(RELAY, HIGH);
+      break;
+      
+
+    case Idle:
+//      lcd.clear();
+//      lcd.setCursor(0, 0);
+//      lcd.print("Idle");
+
+      printInLcd("Idle ",0);
+      printInLcd(" ",1);
 
       timerStamp = 0;
   }
@@ -198,6 +215,10 @@ void receiveData() {
 
     case '1':
       set(Setup);
+      break;
+
+    case '2':
+      set(On);
       break;
   }
 }
@@ -313,7 +334,25 @@ void set(Mode mode) {
     case Setup:
       firstRun();
       break;
+
+    case On:
+      option = On;
+      break;
   }
+}
+
+int printInLcd(String message, int line){
+  if (message == lcdText[line]) {
+    return 0;
+  }
+  lcdText[line] = message;
+  lcd.setCursor(0, line);
+  lcd.print("                ");
+  lcd.setCursor(0, line);
+  lcd.print(lcdText[line]);
+
+  delay(500);
+  return 1;
 }
 
 
