@@ -1,20 +1,27 @@
 #include <LiquidCrystal.h>
 
+/*Defines do numberpad*/
 #define N_ROWS 4
 #define N_COLUMNS 3
 #define DEBOUNCE 20
 #define TEMP_BUTTON '*'
 #define TIME_BUTTON '#'
 
+/*Defines do input e output*/
 #define SENSOR A1
 #define RELAY A2
 
-/*Primeiro: intervalo em milisegundos entre as checagens de temperatura.
-  Segundo: segundos do timer. Terceiro: Temperatura limiar.*/
+/*
+   Valores default
+   Primeiro: intervalo em milisegundos entre as checagens de temperatura.
+   Segundo: segundos do timer. Terceiro:
+   Temperatura limiar em C.
+*/
 #define INTERVAL 10000
 #define TIMEOUT  60000
 #define THRESHOLD 28
 
+/*Enum que representa os possíveis modos de funcionamento*/
 enum Mode {
   Idle,
   Temperature,
@@ -23,10 +30,13 @@ enum Mode {
   On
 };
 
-LiquidCrystal lcd(13, 12, 11, 10, 9, 8);
+/*--------------------------------------------------------------------------------------------*/
 
+/*Variáveis que modelam o display*/
+LiquidCrystal lcd(13, 12, 11, 10, 9, 8);
 String lcdText[2] = {{""}, {""}};
 
+/*Inicializando valores como default*/
 unsigned long interval = INTERVAL, timeout = TIMEOUT, threshold = THRESHOLD;
 
 /*Guarda a última vez que foi feita a atualização da temperatura*/
@@ -39,10 +49,13 @@ unsigned long timerStamp;
 /*Guarda a última leitura do sensor de temperatura*/
 int oldSensorValue;
 
-Mode option = Idle;
+/*Var modo*/
+Mode option;
 
+/*Bool que guarda o modo de receiveData. Pode ser por numberpad ou serial*/
 bool serial = false;
 
+/*Variáveis do numberpad*/
 const int rowPins[] = { 7, 2, 3, 5};
 const int columnPins[] = { 6, A0, 4};
 const char blank = 0;
@@ -54,43 +67,55 @@ const char numberpad[N_ROWS][N_COLUMNS] =
   {'*', '0', '#'}
 };
 
+/*--------------------------------------------------------------------------------------------*/
+
 /*Função que converte a temperatura para Celsius*/
 float tempInCelsius(int sensorValue);
 
-/*Função que verifica se algo foi recebido no Serial*/
+/*Função que verifica se algo foi recebido no Serial, ou do numberpad*/
 void receiveData();
 
+/*Lê do numberpad a tecla pressionada*/
 char pressedKey();
 
+/*Função de configuração dos parâmetros*/
 void firstRun();
 
+/*Mostra uma mensagem e lê um número inteiro do teclado*/
 unsigned int getParameter(char message[]);
 
+/*Converte de char[] para int*/
 unsigned int stringToUInt(char number[], int numberLength);
 
+/*Limpa todos os estados*/
 void clearAllStates();
 
+/*Função auxiliar que configura a var option*/
 void set(Mode mode);
 
+/*Função auxiliar que imprime uma mensagem na linha 0 ou 1*/
 int printInLcd(String message, int line);
 
+/*--------------------------------------------------------------------------------------------*/
+
 void setup() {
+  /*Configuração das saídas*/
   Serial.begin(9600);
   lcd.begin(16, 2);
 
+  /*Configuração das portas*/
   pinMode(SENSOR, INPUT);
   pinMode(RELAY, OUTPUT);
-
   for (int r = 0; r < N_ROWS; r++) {
     pinMode(rowPins[r], INPUT);
     digitalWrite(rowPins[r], HIGH); //enable pull-up
   }
-
   for (int c = 0; c < N_COLUMNS; c++) {
     pinMode(columnPins[c], OUTPUT);
     digitalWrite(columnPins[c], HIGH);
   }
 
+  /*Modo default*/
   set(Temperature);
 }
 
@@ -100,19 +125,13 @@ void loop() {
     oldSensorValue = analogRead(SENSOR);
     lastUpdateTime = millis();
   }
-  
+
+  /*Lê entrada*/
   receiveData();
 
   /*Tratamento e comportamento de cada modo*/
   switch (option) {
     case Temperature:
-//      lcd.clear();
-//      lcd.setCursor(0, 0);
-//      lcd.print("Temperature ");
-//      lcd.setCursor(0, 1);
-//      lcd.print(tempInCelsius(oldSensorValue));
-//      lcd.print(" C");
-
       printInLcd("Temperature ", 0);
       printInLcd(String(tempInCelsius(oldSensorValue)) + " C", 1);
 
@@ -124,7 +143,7 @@ void loop() {
         digitalWrite(RELAY, HIGH);
       }
       else {
-        if(digitalRead(RELAY)){
+        if (digitalRead(RELAY)) {
           break;
         }
         digitalWrite(RELAY, LOW);
@@ -132,17 +151,11 @@ void loop() {
       break;
 
     case Timer:
-//      lcd.clear();
-//      lcd.setCursor(0, 0);
-//      lcd.print("Timer ");
-//      lcd.setCursor(0, 1);
-//      lcd.print(millis() - timerStamp);
-
-      printInLcd("Timer ",0);
-      printInLcd(String((millis() - timerStamp)/1000) + " s", 1);
+      printInLcd("Timer ", 0);
+      printInLcd(String((timeout - (millis() - timerStamp)) / 1000) + " s", 1);
 
       Serial.print("Timer ");
-      Serial.println(millis() - timerStamp);
+      Serial.println((timeout - (millis() - timerStamp)) / 1000);
 
       /*Verifica se o timer foi atingido e faz a ação em caso afirmativo*/
       if (millis() - timerStamp > timeout) {
@@ -155,22 +168,24 @@ void loop() {
       break;
 
     case On:
-        digitalWrite(RELAY, HIGH);
+      printInLcd("On ", 0);
+      printInLcd(" ", 1);
+
+      Serial.println("On ");
+      digitalWrite(RELAY, HIGH);
       break;
-      
+
 
     case Idle:
-//      lcd.clear();
-//      lcd.setCursor(0, 0);
-//      lcd.print("Idle");
-
-      printInLcd("Idle ",0);
-      printInLcd(" ",1);
+      printInLcd("Idle ", 0);
+      printInLcd(" ", 1);
 
       timerStamp = 0;
   }
 
 }
+
+/*--------------------------------------------------------------------------------------------*/
 
 float tempInCelsius(int sensorValue) {
   float mV = (sensorValue) * (5000 / 1024.0);
@@ -231,7 +246,7 @@ char pressedKey() {
     digitalWrite(columnPins[c], LOW);
     for (int r = 0; r < N_ROWS; r++) {
       if (digitalRead(rowPins[r]) == LOW) {
-        delay(DEBOUNCE); //delay to get rid of noises
+        delay(DEBOUNCE); 
       }
       if (digitalRead(rowPins[r]) == LOW) {
         while (digitalRead(rowPins[r]) != HIGH);
@@ -341,7 +356,7 @@ void set(Mode mode) {
   }
 }
 
-int printInLcd(String message, int line){
+int printInLcd(String message, int line) {
   if (message == lcdText[line]) {
     return 0;
   }
