@@ -17,7 +17,7 @@
    Segundo: segundos do timer. Terceiro:
    Temperatura limiar em C.
 */
-#define INTERVAL 10000
+#define INTERVAL 10
 #define TIMEOUT  60000
 #define THRESHOLD 28
 
@@ -152,13 +152,13 @@ void loop() {
 
     case Timer:
       printInLcd("Timer ", 0);
-      printInLcd(String((timeout - (millis() - timerStamp)) / 1000) + " s", 1);
+      printInLcd(String((timeout - (millis()/1000 - timerStamp/1000))) + " s", 1);
 
       Serial.print("Timer ");
-      Serial.println((timeout - (millis() - timerStamp)) / 1000);
+      Serial.println((timeout - (millis() - timerStamp)/1000));
 
       /*Verifica se o timer foi atingido e faz a ação em caso afirmativo*/
-      if (millis() - timerStamp > timeout) {
+      if (millis()/1000 - timerStamp/1000 > timeout) {
         digitalWrite(RELAY, LOW);
         option = Idle;
       }
@@ -263,7 +263,7 @@ char pressedKey() {
 void firstRun() {
   lcd.clear();
   threshold = getParameter("Temp. in C:");
-  timeout =  getParameter("Timer in ms:");
+  timeout =  getParameter("Timer in s:");
   interval = getParameter("Freq. in ms:");
 }
 
